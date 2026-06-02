@@ -1,0 +1,8 @@
+.vscode
+*.egg-info
+data
+*.pdf
+__pycache__
+.pytest_cache
+*.ini
+.DS_Store
