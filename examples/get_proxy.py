@@ -22,7 +22,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
         "--input", type=str,
-        default="/Users/szhan/projects/proxy-asset-gen/data/jacket.obj",
+        default="data/9423122485_cleaned.obj",
         help="Path to visual mesh OBJ.",
     )
     ap.add_argument("--n-v", type=int, default=32,

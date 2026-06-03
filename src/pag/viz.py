@@ -46,7 +46,7 @@ class StagesViewer:
         proxy: ProxyMesh,
         visual: VisualMesh | tuple[np.ndarray, np.ndarray],
         *,
-        spacing: float = 1.2,
+        spacing: float = 1.1,
     ):
         import polyscope as ps
 
@@ -67,7 +67,7 @@ class StagesViewer:
 
         # Stage 0 — input visual mesh.
         self._register("M_visual", V_visual, F_visual, dx=0 * step,
-                       color=(0.65, 0.65, 0.7), transparency=0.35)
+                       color=(0.65, 0.65, 0.7), transparency=1.0)
 
         # Stages 1..3 — intermediates (only if keep_intermediates was set).
         if proxy.M_iso is not None:
@@ -98,7 +98,7 @@ class StagesViewer:
             return
         Vs = V.copy()
         Vs[:, 0] += dx
-        m = self._ps.register_surface_mesh(name, Vs, F, color=color)
+        m = self._ps.register_surface_mesh(name, Vs, F, color=color, edge_width=1.0)
         m.set_smooth_shade(True)
         if transparency < 1.0:
             m.set_transparency(transparency)
@@ -113,7 +113,7 @@ def show_stages(
     proxy: ProxyMesh,
     visual: VisualMesh | tuple[np.ndarray, np.ndarray],
     *,
-    spacing: float = 1.2,
+    spacing: float = 1.1,
 ) -> None:
     """Convenience: build a :class:`StagesViewer` and call ``show()``."""
     StagesViewer(proxy, visual, spacing=spacing).show()

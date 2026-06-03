@@ -22,15 +22,20 @@ mean aspect ratio ≈ 0.76 in Fig. 10).
 from __future__ import annotations
 
 import numpy as np
-import pyacvd
-import pyvista as pv
 
 from pag.mesh import Mesh, build_mesh
 
 
-def _mesh_to_polydata(mesh: Mesh) -> pv.PolyData:
+# pyvista / pyacvd pull in vtk, which ships its own OpenMP runtime that
+# conflicts with PyTorch's on macOS — co-importing both at module load can
+# segfault inside torch fancy-indexing kernels. Lazy-import them inside
+# voronoi_simplify so Stage 2 (skinning) doesn't pay the import cost or
+# trigger the OpenMP collision unless the user actually calls Stage 1.
+
+def _mesh_to_polydata(mesh: Mesh):
     """Adapt our Mesh to pyvista.PolyData. Faces are stored as a flat array
     [n0, v0_0, v0_1, ..., n1, v1_0, ...]; for triangles n_i ≡ 3."""
+    import pyvista as pv
     F = np.ascontiguousarray(mesh.F, dtype=np.int64)
     n_faces = F.shape[0]
     faces_flat = np.empty((n_faces, 4), dtype=np.int64)
@@ -40,7 +45,7 @@ def _mesh_to_polydata(mesh: Mesh) -> pv.PolyData:
                        faces_flat.ravel())
 
 
-def _polydata_to_mesh(pdata: pv.PolyData) -> Mesh:
+def _polydata_to_mesh(pdata) -> Mesh:
     V = np.asarray(pdata.points, dtype=np.float64)
     raw = np.asarray(pdata.faces, dtype=np.int64)
     if raw.size == 0:
@@ -82,6 +87,8 @@ def voronoi_simplify(
     """
     if n_p < 4:
         raise ValueError(f"n_p must be ≥ 4 (got {n_p})")
+
+    import pyacvd
 
     pdata = _mesh_to_polydata(mesh)
     clu = pyacvd.Clustering(pdata)
