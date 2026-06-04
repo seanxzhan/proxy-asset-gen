@@ -9,8 +9,8 @@ Inputs:
 
 Examples
 --------
-$ python examples/skinning_asset.py --smoke
-$ python examples/skinning_asset.py --epochs 200 --device cpu --out /tmp/W.npz
+$ python scripts/get_skin_weights.py --smoke
+$ python scripts/get_skin_weights.py --epochs 200 --device cpu --out /tmp/W.npz
 """
 from __future__ import annotations
 
@@ -20,7 +20,6 @@ from pathlib import Path
 import numpy as np
 
 from pag import (
-    AnimationData,
     load_dataset,
     load_obj,
     optimize_skinning_weights,
@@ -116,7 +115,7 @@ def main() -> None:
 
     import torch
     from pag.skinning_lbs import simplified_lbs
-    from _skinning_viz import show_skinning
+    from pag.skinning_viz import show_skinning
 
     s = torch.tensor(res.s)
     B = torch.tensor(res.B, dtype=torch.long)

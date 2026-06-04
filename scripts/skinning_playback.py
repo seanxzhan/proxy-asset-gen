@@ -1,13 +1,13 @@
 """Replay a saved Stage 2 skinning result without retraining.
 
 Loads the visual mesh, animation data, and the .npz produced by
-``skinning_asset.py --out``. Reconstructs the visual mesh on every frame via
+``get_skin_weights.py --out``. Reconstructs the visual mesh on every frame via
 :func:`pag.skinning_lbs.simplified_lbs` and hands everything to the same
-polyscope viewer used by ``skinning_asset.py``.
+polyscope viewer used by ``get_skin_weights.py``.
 
 Examples
 --------
-$ python examples/skinning_playback.py \\
+$ python scripts/skinning_playback.py \\
       --visual data/9423122485_cleaned.obj \\
       --anim-dir /Users/szhan/projects/pbd/data/9423122485_cleaned_proxy \\
       --weights /tmp/W.npz
@@ -24,7 +24,7 @@ from pag import load_dataset, load_obj
 
 
 def _load_weights(path: Path) -> tuple[scipy.sparse.csr_matrix, np.ndarray, np.ndarray]:
-    """Reconstruct (W, B, s) from the .npz that ``skinning_asset.py --out`` writes."""
+    """Reconstruct (W, B, s) from the .npz that ``get_skin_weights.py --out`` writes."""
     z = np.load(path)
     shape = tuple(int(x) for x in z["W_shape"])
     W = scipy.sparse.csr_matrix(
@@ -42,7 +42,7 @@ def main() -> None:
     ap.add_argument("--anim-dir", type=str, required=True,
                     help="windblown_data_gen.py output directory.")
     ap.add_argument("--weights", type=str, required=True,
-                    help="Path to the .npz saved by skinning_asset.py --out.")
+                    help="Path to the .npz saved by get_skin_weights.py --out.")
     args = ap.parse_args()
 
     visual_path = Path(args.visual)
@@ -81,7 +81,7 @@ def main() -> None:
 
     import torch
     from pag.skinning_lbs import simplified_lbs
-    from _skinning_viz import show_skinning
+    from pag.skinning_viz import show_skinning
 
     s = torch.tensor(s_np)
     B = torch.tensor(B_np, dtype=torch.long)

@@ -112,7 +112,7 @@ def main() -> None:
 
     import torch
     from pag.skinning_lbs import simplified_lbs
-    from _skinning_viz import show_skinning
+    from pag.skinning_viz import show_skinning
 
     s = torch.tensor(res.s)
     B = torch.tensor(res.B, dtype=torch.long)
