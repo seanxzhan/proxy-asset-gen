@@ -114,11 +114,9 @@ def main() -> None:
     if args.smoke:
         return
 
-    # Interactive viz: side-by-side proxy(t) + visual_recon(t) + visual rest.
-    import polyscope as ps
-    import polyscope.imgui as psim
     import torch
     from pag.skinning_lbs import simplified_lbs
+    from _skinning_viz import show_skinning
 
     s = torch.tensor(res.s)
     B = torch.tensor(res.B, dtype=torch.long)
@@ -130,50 +128,12 @@ def main() -> None:
         V_recon_train = simplified_lbs(s, B, V_v0, V_p0, X_train).numpy()
         V_recon_test = simplified_lbs(s, B, V_v0, V_p0, X_test).numpy()
 
-    ps.init()
-    ps.set_up_dir("y_up")
-    ps.set_ground_plane_mode("none")
-    diag = float(np.linalg.norm(V_visual.max(0) - V_visual.min(0)))
-    sp = 1.1 * diag
-
-    state = {"frame": 0, "split": "train"}
-
-    proxy_mesh = ps.register_surface_mesh(
-        "M_proxy(t)", train.V_proxy_rest + np.array([0, 0, 0]),
-        train.F_proxy, color=(0.45, 0.65, 0.85),
+    show_skinning(
+        V_visual, F_visual,
+        train.V_proxy_rest, train.F_proxy,
+        train.X, V_recon_train, res.W,
+        X_test=test.X, V_recon_test=V_recon_test,
     )
-    recon_mesh = ps.register_surface_mesh(
-        "M_visual_recon(t)", V_visual + np.array([sp, 0, 0]),
-        F_visual, color=(0.90, 0.45, 0.45),
-    )
-    ps.register_surface_mesh(
-        "M_visual rest", V_visual + np.array([2 * sp, 0, 0]),
-        F_visual, color=(0.65, 0.65, 0.65), transparency=0.4,
-    )
-
-    def callback() -> None:
-        n_frames = train.n_frames if state["split"] == "train" else test.n_frames
-        if state["frame"] >= n_frames:
-            state["frame"] = n_frames - 1
-        changed_split = False
-        if psim.Button("train"):
-            state["split"] = "train"; state["frame"] = 0; changed_split = True
-        psim.SameLine()
-        if psim.Button("test"):
-            state["split"] = "test"; state["frame"] = 0; changed_split = True
-        psim.Text(f"split: {state['split']}  frames: {n_frames}")
-        changed_frame, state["frame"] = psim.SliderInt(
-            "frame", state["frame"], 0, max(n_frames - 1, 0)
-        )
-        if changed_frame or changed_split:
-            X = train.X if state["split"] == "train" else test.X
-            R = V_recon_train if state["split"] == "train" else V_recon_test
-            f = state["frame"]
-            proxy_mesh.update_vertex_positions(X[f] + np.array([0, 0, 0]))
-            recon_mesh.update_vertex_positions(R[f] + np.array([sp, 0, 0]))
-
-    ps.set_user_callback(callback)
-    ps.show()
 
 
 if __name__ == "__main__":

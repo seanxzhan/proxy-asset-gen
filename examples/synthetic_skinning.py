@@ -1,6 +1,6 @@
 """Standalone Stage 2 demo on a synthetic cylinder — no PBD dependency.
 
-A two-layer cylinder = M_visual; a single-layer cylinder = M_proxy. Generate
+A single-layer cylinder = M_visual; a single-layer cylinder = M_proxy. Generate
 20 frames of a known proxy bend in pure numpy (no pre-simulation), optimize
 skinning weights, and (interactively) show the skinned visual tracking the
 proxy in polyscope.
@@ -110,9 +110,9 @@ def main() -> None:
     if args.smoke:
         return
 
-    import polyscope as ps
-    from pag.skinning_lbs import simplified_lbs
     import torch
+    from pag.skinning_lbs import simplified_lbs
+    from _skinning_viz import show_skinning
 
     s = torch.tensor(res.s)
     B = torch.tensor(res.B, dtype=torch.long)
@@ -122,36 +122,11 @@ def main() -> None:
     with torch.no_grad():
         V_recon = simplified_lbs(s, B, V_v0, V_p0, X).numpy()
 
-    ps.init()
-    ps.set_up_dir("y_up")
-    ps.set_ground_plane_mode("none")
-    diag = float(np.linalg.norm(V_visual.max(0) - V_visual.min(0)))
-    spacing = 1.5 * diag
-
-    proxy_curve = ps.register_surface_mesh(
-        "M_proxy(t)", V_proxy + np.array([0, 0, 0]), F_proxy, color=(0.45, 0.65, 0.85),
+    show_skinning(
+        V_visual, F_visual,
+        V_proxy, F_proxy,
+        frames, V_recon, res.W,
     )
-    visual_recon = ps.register_surface_mesh(
-        "M_visual_recon(t)", V_visual + np.array([spacing, 0, 0]), F_visual,
-        color=(0.90, 0.45, 0.45),
-    )
-    ps.register_surface_mesh(
-        "M_visual rest", V_visual + np.array([2 * spacing, 0, 0]), F_visual,
-        color=(0.65, 0.65, 0.65), transparency=0.4,
-    )
-
-    state = {"frame": 0}
-
-    def callback() -> None:
-        import polyscope.imgui as psim
-        changed, state["frame"] = psim.SliderInt("frame", state["frame"], 0, frames.shape[0] - 1)
-        if changed or psim.Button("step"):
-            f = state["frame"]
-            proxy_curve.update_vertex_positions(frames[f] + np.array([0, 0, 0]))
-            visual_recon.update_vertex_positions(V_recon[f] + np.array([spacing, 0, 0]))
-
-    ps.set_user_callback(callback)
-    ps.show()
 
 
 if __name__ == "__main__":
