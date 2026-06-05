@@ -114,6 +114,7 @@ def run_proxy_sim(
     k_damp: float = 0.05,
     friction: float = 0.0,
     restitution: float = 0.0,
+    contact_skin: float = 0.0,
     n_settle: int = 30,
     solver: str = "jacobi",
 ) -> tuple[np.ndarray, list[list[Obstacle]]]:
@@ -140,7 +141,8 @@ def run_proxy_sim(
     """
     step_kw = dict(
         dt=dt, iters=iters, k_damp=k_damp,
-        friction=friction, restitution=restitution, solver=solver,
+        friction=friction, restitution=restitution,
+        contact_skin=contact_skin, solver=solver,
     )
     for _ in range(n_settle):
         sys.step(**step_kw)

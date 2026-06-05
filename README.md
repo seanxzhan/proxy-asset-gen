@@ -70,6 +70,14 @@ python scripts/eval_scenarios/moving_sphere.py \
     --anim-dir data/9423122485_cleaned_proxy_all_dir \
     --weights results/9423122485_cleaned_proxy_skinning_all_dir.npz \
     --frames 180 --tail-frames 60
+
+# optionally, run sim on the full mesh
+python scripts/eval_scenarios/moving_sphere.py \
+    --visual data/9423122485_cleaned.obj \
+    --anim-dir data/9423122485_cleaned_proxy_all_dir \
+    --weights results/9423122485_cleaned_proxy_skinning_all_dir.npz \
+    --frames 180 --tail-frames 60 \
+    --sim-full --cache results/9423122485_cleaned_proxy_skinning_all_dir_test_moving_sphere.npz
 ```
 
 ## Test cases
