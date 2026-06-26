@@ -137,7 +137,7 @@ def main() -> None:
     park_scaling_offset = 0.4
     half_x = park_scaling_offset * (bbox_max[0] - bbox_min[0])
     cy = float(park_scaling_offset * (bbox_max[1] + bbox_min[1]))
-    z_offset = 0.1
+    z_offset = 0.15
     start = np.array([args.start_x_frac * half_x, cy, z_offset], dtype=np.float64)
     end = np.array([args.end_x_frac * half_x, cy, z_offset], dtype=np.float64)
     radius = args.radius_frac * diag

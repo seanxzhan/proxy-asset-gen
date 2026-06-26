@@ -109,7 +109,7 @@ def main() -> None:
 
     from pag.viz import show_stages
     print("opening polyscope viewer ...")
-    show_stages(out, (V, F))
+    show_stages(out, (V, F), spacing=0.8)
 
 
 if __name__ == "__main__":
