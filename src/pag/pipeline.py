@@ -64,6 +64,8 @@ def generate_proxy_mesh(
     proj_iters: int = 200,
     proj_lr: float = 5e-3,
     lambda_L: float = 0.1,
+    proj_collision_free: bool = False,
+    proj_dhat_frac: float = 1e-3,
     # §3.3
     eps_normal: float = 0.1,
     lambda_s: float = 1.0,
@@ -91,6 +93,13 @@ def generate_proxy_mesh(
     n_v : int, default 32
         §3.1 voxel resolution along the longest bbox axis (paper-pinned).
     proj_iters, proj_lr, lambda_L : §3.2 vector-Adam knobs (paper-silent).
+    proj_collision_free : §3.2 — if True, use the IPC + CCD solver so M_proj is
+        guaranteed self-intersection-free (the two iso sheets never cross). This
+        is the paper-silent fix the authors confirmed §3.3 needs to avoid holes
+        in M_single. Slower than vector Adam. See
+        docs/Self-Intersection-Free-Projection.md.
+    proj_dhat_frac : §3.2 — IPC barrier activation distance as a fraction of the
+        bbox diagonal (only used when proj_collision_free=True).
     eps_normal : §3.3 opposite-edge normal threshold (paper-silent).
     lambda_s, lambda_o, lambda_bias : §3.3 ILP energy weights.
     enable_outer_bias : §3.3 — disable to debug bias-driven label flips.
@@ -110,7 +119,10 @@ def generate_proxy_mesh(
     """
     knobs = {
         "n_v": n_v, "proj_iters": proj_iters, "proj_lr": proj_lr,
-        "lambda_L": lambda_L, "eps_normal": eps_normal,
+        "lambda_L": lambda_L,
+        "proj_collision_free": float(proj_collision_free),
+        "proj_dhat_frac": proj_dhat_frac,
+        "eps_normal": eps_normal,
         "lambda_s": lambda_s, "lambda_o": lambda_o, "lambda_bias": lambda_bias,
         "enable_outer_bias": float(enable_outer_bias),
         "n_p": n_p, "cvd_max_iter": cvd_max_iter,
@@ -130,10 +142,14 @@ def generate_proxy_mesh(
     proj = project_to_visual(
         iso.mesh, V_visual, F_visual,
         n_iters=proj_iters, lr=proj_lr, lambda_L=lambda_L,
+        collision_free=proj_collision_free, dhat_frac=proj_dhat_frac,
+        verbose=verbose,
     )
     timings["projection"] = time.perf_counter() - t0
     if verbose:
-        print(f"§3.2 projection:  {timings['projection']:.3f}s  ({proj_iters} iters)")
+        solver = "ipc" if proj_collision_free else "vector-adam"
+        print(f"§3.2 projection:  {timings['projection']:.3f}s  "
+              f"({solver}, {proj.n_iters} iters)")
 
     t0 = time.perf_counter()
     guide = build_guide_graph(

@@ -165,7 +165,7 @@ def test_d_plus_shape_matches_n_verts():
 
 
 def test_smoothness_weight_matches_paper_formula():
-    """w_s^{ij} = 1 − (max(|κ_i|, |κ_j|) / κ̄)⁴, clamped to [0, 1].
+    """w_s^{ij} = 1 − (max(|κ_i|, |κ_j|) / κ̄)⁴ with κ̄ = max_j |κ_j| (paper §3.3).
 
     Pass abs_curvature directly so the formula isolates from libigl. Compute
     expected w by hand for a 3-vertex triangle and assert exact agreement.
@@ -175,13 +175,11 @@ def test_smoothness_weight_matches_paper_formula():
     F = np.array([[0, 1, 2]], dtype=np.int64)
     mesh = build_mesh(V, F)
 
-    # Choose curvatures with mean 1/6 (so ratios are clean).
-    abs_kappa = np.array([0.0, 0.1, 0.4])  # κ̄ = 0.5/3 ≈ 0.16667
+    abs_kappa = np.array([0.0, 0.1, 0.4])  # κ̄ = max = 0.4
     g = build_guide_graph(mesh, voxel_size=1.0, abs_curvature=abs_kappa)
 
-    kbar = abs_kappa.mean()
-    # Per-vertex ratio clamped to 1 → per-vertex w = 1 - ratio⁴ ∈ [0, 1].
-    ratio = np.minimum(abs_kappa / kbar, 1.0)
+    kbar = abs_kappa.max()                 # paper: maximum absolute curvature
+    ratio = abs_kappa / kbar               # ∈ [0, 1] by construction (no clamp)
     w_per_vert = 1.0 - ratio ** 4
     # mesh.edges is sorted ascending → expect [(0,1), (0,2), (1,2)].
     expected = np.array([
@@ -192,20 +190,18 @@ def test_smoothness_weight_matches_paper_formula():
     np.testing.assert_allclose(g.smoothness_w, expected, atol=1e-12)
 
 
-def test_smoothness_clamped_when_kappa_above_mean():
-    """When max(|κ_i|, |κ_j|) ≫ κ̄, the paper formula yields negative w_s.
-    Our impl clamps the per-vertex ratio to 1, giving w_s = 0 instead.
-
-    A negative weight would *reward* cuts in the ILP (a sign error). This
-    test pins down the clamping behaviour as intentional, not a bug.
+def test_smoothness_max_normalization_zeroes_the_peak():
+    """With κ̄ = max_j |κ_j| (paper), the single highest-curvature vertex has
+    ratio = 1 → w_per_vert = 0, so every edge touching it is free to cut, while
+    all other ratios stay < 1. No clamping is needed (ratios are ≤ 1 by
+    construction), unlike a mean-normalized variant where κ_i > κ̄ is possible.
     """
     V = np.array([[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]], dtype=np.float64)
     F = np.array([[0, 1, 2]], dtype=np.int64)
     mesh = build_mesh(V, F)
-    abs_kappa = np.array([0.0, 0.0, 10.0])  # κ̄ = 10/3, vertex 2 ratio > 1
+    abs_kappa = np.array([0.0, 0.0, 10.0])  # κ̄ = 10; vertex 2 is the global max
     g = build_guide_graph(mesh, voxel_size=1.0, abs_curvature=abs_kappa)
-    # Edges (0,2) and (1,2) involve the high-κ vertex → w=0 (clamped).
-    # Edge (0,1) has κ̄-only verts on both sides → w=1.
+    # Edges (0,2) and (1,2) touch the peak vertex → w=0; edge (0,1) → w=1.
     np.testing.assert_allclose(g.smoothness_w, [1.0, 0.0, 0.0], atol=1e-12)
 
 

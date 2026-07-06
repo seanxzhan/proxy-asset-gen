@@ -68,6 +68,9 @@ def main() -> None:
                     help="§3.3 outer-layer bias.")
     ap.add_argument("--no-bias", action="store_true",
                     help="Disable §3.3 outer-layer bias.")
+    ap.add_argument("--collision-free", action="store_true",
+                    help="§3.2: use the IPC + CCD solver so M_proj is "
+                         "self-intersection-free (fixes holes in M_single).")
     ap.add_argument("--out", type=str, default=None,
                     help="Optional path to save M_proxy as OBJ.")
     ap.add_argument("--smoke", action="store_true",
@@ -87,6 +90,7 @@ def main() -> None:
         n_p=args.n_p,
         lambda_bias=args.lambda_bias,
         enable_outer_bias=not args.no_bias,
+        proj_collision_free=args.collision_free,
         keep_intermediates=not args.smoke,
         verbose=True,
     )

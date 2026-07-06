@@ -37,6 +37,15 @@ def main() -> None:
                     help="§3.3 outer-layer bias (multiplied by λ_o).")
     ap.add_argument("--no-bias", action="store_true",
                     help="Disable §3.3 outer-layer bias (debug knob).")
+    ap.add_argument("--collision-free", action="store_true",
+                    help="§3.2: use the IPC + CCD solver so M_proj is guaranteed "
+                         "self-intersection-free (the two iso sheets never "
+                         "cross). Fixes holes/fragmentation in M_single from "
+                         "self-intersecting projections; slower than vector "
+                         "Adam. See docs/Self-Intersection-Free-Projection.md.")
+    ap.add_argument("--proj-dhat-frac", type=float, default=1e-3,
+                    help="§3.2 IPC barrier activation distance as a fraction of "
+                         "the bbox diagonal (only with --collision-free).")
     ap.add_argument("--out", type=str, default=None,
                     help="Optional path to save M_proxy as OBJ.")
     ap.add_argument("--smoke", action="store_true",
@@ -54,6 +63,8 @@ def main() -> None:
         n_p=args.n_p,
         proj_iters=args.proj_iters,
         lambda_L=args.lambda_L,
+        proj_collision_free=args.collision_free,
+        proj_dhat_frac=args.proj_dhat_frac,
         lambda_bias=args.lambda_bias,
         enable_outer_bias=not args.no_bias,
         keep_intermediates=not args.smoke,
@@ -78,7 +89,7 @@ def main() -> None:
 
     from pag.viz import show_stages
     print("opening polyscope viewer (close window or Ctrl+C to exit) ...")
-    show_stages(out, (V, F), spacing=0.8)
+    show_stages(out, (V, F), spacing=-0.8)
 
 
 if __name__ == "__main__":
