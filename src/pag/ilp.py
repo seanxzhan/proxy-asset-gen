@@ -82,7 +82,7 @@ def solve_layer_ilp(
     lambda_o: float = 1.0,
     lambda_bias: float = 0.1,
     enable_outer_bias: bool = True,
-    time_limit: float = 60.0,
+    time_limit: float = 120.0,
     verbose: bool = False,
 ) -> LayerLabels:
     """Solve the §3.3 single-layer ILP via HiGHS.

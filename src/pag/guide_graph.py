@@ -96,20 +96,24 @@ def build_guide_graph(
     N = V.shape[0]
 
     if abs_curvature is None:
-        abs_curvature = vertex_abs_curvature(mesh, ring_radius=curvature_radius)
+        abs_curvature, k = vertex_abs_curvature(mesh, ring_radius=curvature_radius)
     abs_curvature = np.asarray(abs_curvature, dtype=np.float64)
 
-    # ---- smoothness weights w_s = 1 − (max(κ_i, κ_j)/κ̄)⁴, capped to [0, 1].
-    kappa_mean = float(abs_curvature.mean()) if abs_curvature.size else 0.0
-    if kappa_mean > 0.0:
-        ratio = np.minimum(abs_curvature / kappa_mean, 1.0)
-        w_per_vert = 1.0 - ratio ** 4
+    # # ---- smoothness weights (paper §3.3 Eq. 3):
+    # #   w_s^{ij} = 1 − (max(|κ_i|, |κ_j|) / κ̄)⁴,   κ̄ = max_j |κ_j|.
+    # kappa_max = float(abs_curvature.mean()) if abs_curvature.size else 0.0
+    kappa_max = float(abs_curvature.max()) if abs_curvature.size else 0.0
+    # kappa_max = k
+    edges = mesh.edges
+    max_v_per_edge = np.maximum(abs_curvature[edges[:, 0]], abs_curvature[edges[:, 1]])
+    if kappa_max > 0.0:
+        ratio = max_v_per_edge / kappa_max
+        smoothness_w = 1 - ratio ** 4
     else:
         # Degenerate (all-flat) mesh — every edge is "smoothness-protected".
-        w_per_vert = np.ones(N, dtype=np.float64)
-    edges = mesh.edges
-    # max(κ_i, κ_j) → min(w_per_vert_i, w_per_vert_j)  since w decreases in κ.
-    smoothness_w = np.minimum(w_per_vert[edges[:, 0]], w_per_vert[edges[:, 1]])
+        smoothness_w = np.ones(N, dtype=np.float64)
+
+    # breakpoint()
 
     # ---- ray cast both ±n. Build AABB once; query both directions.
     n_vert = mesh.vertex_normals()
