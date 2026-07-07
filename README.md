@@ -97,3 +97,27 @@ python -m pytest tests/test_anim.py tests/test_skinning_lbs.py \
 ```
 
 These two need to be tested separately because of pytorch / vtk conflict
+
+## Batch
+
+Extract objs from gltf files (this just gets the mesh out, gets rid of cages)
+```bash
+python scripts/extract_obj.py /Users/szhan/Downloads/marketplace_clothes_export_filtered_08222025/Skirt  --output data/Skirt
+```
+
+Manually remove caps. 
+
+Clean meshes
+```bash
+python scripts/clean_meshes.py data/Skirt_caps_removed --output data/Skirt_caps_removed_cleaned
+```
+
+Generate proxy meshes
+```bash
+python scripts/batch_proxy.py data/Skirt_caps_removed --n-v 32 --n-p 128 --output results/Skirt_caps_removed_proxy
+```
+
+Visualize
+```bash
+python scripts/visualize_proxy_grid.py data/Skirt_caps_removed_cleaned results/Skirt_caps_removed_cleaned_proxy
+```
