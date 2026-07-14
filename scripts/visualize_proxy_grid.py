@@ -70,18 +70,22 @@ def main() -> None:
     ps.set_ground_plane_mode("none")
     ps.set_up_dir("y_up")
 
-    spacing_pair = 0.0
-    spacing_x = 0.0
-    spacing_z = 0.0
+    # Every mesh is normalized to a unit bbox diagonal (centered, scaled) before
+    # placement, so the grid reads uniformly no matter how the source garments
+    # are scaled. Spacing is therefore in unit-mesh multiples, not tied to any
+    # one mesh's size.
+    spacing_pair = -0.7  # visual/proxy gap within a cell
+    spacing_x = 1.5       # gap between grid columns
+    spacing_z = 1.2      # gap between grid rows
 
     for i, (visual_path, proxy_path, stem) in enumerate(entries):
         V_vis, F_vis = load_mesh(visual_path)
 
-        diag_vis = float(np.linalg.norm(V_vis.max(0) - V_vis.min(0)))
-        if i == 0:
-            spacing_pair = -diag_vis * 0.75
-            spacing_x = diag_vis * 1.8
-            spacing_z = diag_vis * 1.5
+        lo, hi = V_vis.min(0), V_vis.max(0)
+        centroid_vis = (lo + hi) / 2
+        diag_vis = float(np.linalg.norm(hi - lo))
+        scale = 1.0 / diag_vis if diag_vis > 0 else 1.0
+        V_vis_n = (V_vis - centroid_vis) * scale
 
         col = i % cols
         row = i // cols
@@ -89,20 +93,22 @@ def main() -> None:
         offset_x = col * spacing_x
         offset_y = -row * spacing_z
 
-        centroid_vis = (V_vis.max(0) + V_vis.min(0)) / 2
-        V_vis_shifted = V_vis - centroid_vis + np.array([offset_x - spacing_pair / 2, offset_y, 0])
-
         if proxy_path is not None:
             V_prx, F_prx = load_mesh(proxy_path)
             centroid_prx = (V_prx.max(0) + V_prx.min(0)) / 2
-            V_prx_shifted = V_prx - centroid_prx + np.array([offset_x + spacing_pair / 2, offset_y, 0])
+            # Scale the proxy by the *visual's* factor so their relative size is
+            # preserved within the cell.
+            V_prx_n = (V_prx - centroid_prx) * scale
+
+            V_vis_shifted = V_vis_n + np.array([offset_x - spacing_pair / 2, offset_y, 0])
+            V_prx_shifted = V_prx_n + np.array([offset_x + spacing_pair / 2, offset_y, 0])
 
             ps.register_surface_mesh(f"visual/{stem}", V_vis_shifted, F_vis,
                                      color=(0.7, 0.7, 0.7), smooth_shade=False, edge_width=1.0)
             ps.register_surface_mesh(f"proxy/{stem}", V_prx_shifted, F_prx,
                                      color=(0.3, 0.6, 0.9), smooth_shade=False, edge_width=1.0)
         else:
-            V_vis_shifted = V_vis - centroid_vis + np.array([offset_x, offset_y, 0])
+            V_vis_shifted = V_vis_n + np.array([offset_x, offset_y, 0])
             ps.register_surface_mesh(f"FAILED/{stem}", V_vis_shifted, F_vis,
                                      color=(0.9, 0.3, 0.3), smooth_shade=False, edge_width=1.0)
 
