@@ -17,6 +17,9 @@ pip install -e /Users/szhan/projects/pbd
 First, get proxy mesh.
 ```bash
 python scripts/get_proxy.py --input data/9423122485_cleaned.obj
+
+# optionally, use --collision-free flag to ensure that projected mesh doesn't have self-intersections
+python scripts/get_proxy.py --collision-free --n-p 128 --input data/9423122485_cleaned.obj
 ```
 
 Second, use the PBD project to generate training and testing data.
@@ -115,6 +118,9 @@ python scripts/clean_meshes.py data/Skirt_caps_removed --output data/Skirt_caps_
 Generate proxy meshes
 ```bash
 python scripts/batch_proxy.py data/Skirt_caps_removed --n-v 32 --n-p 128 --output results/Skirt_caps_removed_proxy
+
+# optionally, use --collision-free flag to ensure that projected mesh doesn't have self-intersections
+python scripts/batch_proxy.py data/Skirt_caps_removed --n-v 32 --n-p 128 --collision-free --output results/Skirt_caps_removed_proxy
 ```
 
 Visualize
