@@ -43,6 +43,16 @@ python scripts/data_gen/gen_windblown_data.py \
   --turbulence-std 1.0 --coherence 0.95 --viz \
   --out data/9423122485_cleaned_proxy_all_dir
 
+python scripts/data_gen/gen_windblown_data.py \
+  --obj results/fitted_caps_removed_cleaned_proxy/14918105331_DarkAgeApprentice_0_S1.obj \
+  --axis both --k-stretch 0.5 \
+  --train-frames 600 --test-frames 200 \
+  --pin-fraction 0.10 \
+  --mag-train 5.0 8.0 --mag-test 5.0 8.0 \
+  --azimuth-train 0 360 --azimuth-test 0 360 \
+  --turbulence-std 1.0 --coherence 0.95 --viz \
+  --out data/14918105331_DarkAgeApprentice_0_S1_cleaned_proxy_all_dir
+
 # just visualize
 python scripts/data_gen/vis_windblown_data.py \
     --obj data/9423122485_cleaned_proxy.obj \
@@ -56,6 +66,11 @@ python scripts/get_skin_weights.py \
     --epochs 300 \
     --anim-dir data/9423122485_cleaned_proxy_turb \
     --out results/9423122485_cleaned_proxy_skinning_turb.npz
+
+python scripts/get_skin_weights.py \                                   
+    --epochs 300 --visual data/fitted_caps_removed_cleaned/14918105331_DarkAgeApprentice_0_S1.obj \
+    --anim-dir data/14918105331_DarkAgeApprentice_0_S1_cleaned_proxy_all_dir \
+    --out results/14918105331_DarkAgeApprentice_0_S1_cleaned_proxy_skinning_all_dir.npz
 ```
 
 Playback the training and testing set.
@@ -81,6 +96,24 @@ python scripts/eval_scenarios/moving_sphere.py \
     --weights results/9423122485_cleaned_proxy_skinning_all_dir.npz \
     --frames 180 --tail-frames 60 \
     --sim-full --cache results/9423122485_cleaned_proxy_skinning_all_dir_test_moving_sphere.npz
+
+python scripts/eval_scenarios/drag_twist.py \
+    --visual data/9423122485_cleaned.obj \
+    --anim-dir data/9423122485_cleaned_proxy_all_dir \
+    --weights results/9423122485_cleaned_proxy_skinning_all_dir.npz \
+    --demo twist --collision
+
+python scripts/eval_scenarios/drag_twist.py \
+    --visual data/fitted_caps_removed_cleaned/14918105331_DarkAgeApprentice_0_S1.obj \
+    --anim-dir data/14918105331_DarkAgeApprentice_0_S1_cleaned_proxy_all_dir \
+    --weights results/14918105331_DarkAgeApprentice_0_S1_cleaned_proxy_skinning_all_dir.npz \
+    --demo twist
+
+python scripts/eval_scenarios/dancing_sway.py \
+    --visual data/fitted_caps_removed_cleaned/14918105331_DarkAgeApprentice_0_S1.obj \
+    --anim-dir data/14918105331_DarkAgeApprentice_0_S1_cleaned_proxy_all_dir \
+    --weights results/14918105331_DarkAgeApprentice_0_S1_cleaned_proxy_skinning_all_dir.npz \
+    --frames 360 --cycles 4 --amplitude-x 0.3 --sharpness 1.5 --full-k-damp 0.15  --cache results/anim_14918105331_DarkAgeApprentice_0_S1.npz
 ```
 
 ## Test cases

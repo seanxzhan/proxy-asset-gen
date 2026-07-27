@@ -15,6 +15,7 @@ effectively an SDF render — so they're smooth at any zoom level, not faceted).
 UI:
   - play / pause toggle + fps slider
   - frame slider
+  - optional current-frame OBJ export button
 
 Modeled on `pag.skinning_viz.show_skinning` but stripped of the bone selector,
 the train/test split toggle, and the rest/weights panes — all of which apply to
@@ -22,6 +23,8 @@ the wind-data viewer, not to scenario evaluation.
 """
 from __future__ import annotations
 
+from pathlib import Path
+import re
 import time
 from typing import Optional
 
@@ -50,6 +53,107 @@ def _plane_quad(center: np.ndarray, normal: np.ndarray, size: float):
     ])
     F = np.array([[0, 1, 2], [0, 2, 3]], dtype=np.int64)
     return V, F
+
+
+def _sphere_mesh(
+    center: np.ndarray,
+    radius: float,
+    n_theta: int = 40,
+    n_phi: int = 20,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Triangulate a sphere impostor so it can be represented in OBJ."""
+    phi = np.linspace(0.0, np.pi, n_phi + 1)
+    theta = np.linspace(0.0, 2.0 * np.pi, n_theta, endpoint=False)
+    P, T = np.meshgrid(phi, theta, indexing="ij")
+    directions = np.stack(
+        [np.sin(P) * np.cos(T), np.cos(P), np.sin(P) * np.sin(T)],
+        axis=-1,
+    ).reshape(-1, 3)
+    faces = []
+    for row in range(n_phi):
+        for col in range(n_theta):
+            nxt = (col + 1) % n_theta
+            a = row * n_theta + col
+            b = row * n_theta + nxt
+            c = (row + 1) * n_theta + col
+            d = (row + 1) * n_theta + nxt
+            faces.extend(((a, c, d), (a, d, b)))
+    V = np.asarray(center, dtype=np.float64) + float(radius) * directions
+    return V, np.asarray(faces, dtype=np.int64)
+
+
+def _obstacle_mesh(ob: Obstacle) -> tuple[np.ndarray, np.ndarray]:
+    """Convert any renderer obstacle to exportable triangle geometry."""
+    if ob.kind == "sphere":
+        return _sphere_mesh(ob.center, ob.radius)
+    if ob.kind == "plane":
+        return _plane_quad(ob.center, ob.normal, size=10.0)
+    if ob.kind == "mesh":
+        return (
+            np.asarray(ob.V, dtype=np.float64),
+            np.asarray(ob.F, dtype=np.int64),
+        )
+    raise ValueError(f"unknown obstacle kind: {ob.kind!r}")
+
+
+def _obj_stem(name: str) -> str:
+    """Make a stable, filesystem-safe OBJ stem from a scene object name."""
+    stem = re.sub(r"[^A-Za-z0-9_.-]+", "_", name).strip("_.")
+    return stem or "object"
+
+
+def export_eval_frame(
+    export_dir: str | Path,
+    frame: int,
+    X_proxy: np.ndarray,
+    F_proxy: np.ndarray,
+    V_recon: np.ndarray,
+    F_visual: np.ndarray,
+    obstacles: list[Obstacle],
+    pane_offsets: list[np.ndarray],
+    *,
+    V_full_sim: Optional[np.ndarray] = None,
+) -> list[Path]:
+    """Export every object displayed for one eval frame to a separate OBJ.
+
+    Coordinates include the viewer's pane offsets, so loading all resulting
+    files together reproduces the Polyscope layout.
+    """
+    expected_panes = 3 if V_full_sim is not None else 2
+    if len(pane_offsets) != expected_panes:
+        raise ValueError(
+            f"got {len(pane_offsets)} pane offsets; expected {expected_panes}"
+        )
+
+    from pag.io import save_obj
+
+    frame_dir = Path(export_dir).expanduser() / f"frame_{frame:04d}"
+    frame_dir.mkdir(parents=True, exist_ok=True)
+
+    mesh_objects = [
+        ("M_proxy", X_proxy, F_proxy, pane_offsets[0]),
+        ("M_visual_recon", V_recon, F_visual, pane_offsets[1]),
+    ]
+    if V_full_sim is not None:
+        mesh_objects.append(
+            ("M_visual_sim", V_full_sim, F_visual, pane_offsets[2])
+        )
+
+    paths: list[Path] = []
+    for name, vertices, faces, offset in mesh_objects:
+        path = frame_dir / f"{_obj_stem(name)}.obj"
+        save_obj(path, np.asarray(vertices) + np.asarray(offset), faces)
+        paths.append(path)
+
+    pane_tags = ("proxy", "recon", "fullsim")
+    for slot, ob in enumerate(obstacles):
+        vertices, faces = _obstacle_mesh(ob)
+        for pane_index, offset in enumerate(pane_offsets):
+            name = f"obs{slot}_{ob.name}_{pane_tags[pane_index]}"
+            path = frame_dir / f"{_obj_stem(name)}.obj"
+            save_obj(path, vertices + np.asarray(offset), faces)
+            paths.append(path)
+    return paths
 
 
 # ------------------------------------------------------------ obstacle handles
@@ -130,6 +234,7 @@ def show_eval(
     *,
     V_full_sim: Optional[np.ndarray] = None,   # (T, N_v, 3); enables 3rd pane
     fps: float = 60.0,
+    export_dir: Optional[str | Path] = None,
 ) -> None:
     import polyscope as ps
     import polyscope.imgui as psim
@@ -188,6 +293,8 @@ def show_eval(
         "playing": False,
         "fps": float(fps),
         "last_tick": 0.0,
+        "export_status": "",
+        "export_dir": str(export_dir) if export_dir is not None else "",
     }
 
     def callback() -> None:
@@ -211,6 +318,40 @@ def show_eval(
         changed_frame, state["frame"] = psim.SliderInt(
             "frame", state["frame"], 0, max(n_frames - 1, 0),
         )
+
+        if export_dir is not None:
+            psim.Separator()
+            psim.TextUnformatted("Current-frame OBJ export")
+            _, state["export_dir"] = psim.InputText(
+                "output directory", state["export_dir"], max_str_len=4096
+            )
+            if psim.Button("export current frame (.obj)"):
+                f = state["frame"]
+                try:
+                    output_dir = state["export_dir"].strip()
+                    if not output_dir:
+                        raise ValueError("output directory cannot be empty")
+                    paths = export_eval_frame(
+                        output_dir,
+                        f,
+                        X_p[f],
+                        F_proxy,
+                        V_recon[f],
+                        F_visual,
+                        obstacles_per_frame[f],
+                        pane_offsets,
+                        V_full_sim=(
+                            V_full_sim[f] if V_full_sim is not None else None
+                        ),
+                    )
+                    state["export_status"] = (
+                        f"exported {len(paths)} objects to "
+                        f"{paths[0].parent.resolve()}"
+                    )
+                except Exception as exc:
+                    state["export_status"] = f"export failed: {exc}"
+            if state["export_status"]:
+                psim.TextUnformatted(state["export_status"])
 
         if changed_frame or advanced:
             f = state["frame"]
